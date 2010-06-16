@@ -196,7 +196,7 @@ abstract class ClosureElimination extends SubComponent {
     
     /** is field 'f' accessible from method 'm'? */
     def accessible(f: Symbol, m: Symbol): Boolean = 
-      f.isPublic || (f.hasFlag(Flags.PROTECTED) && (enclPackage(f) == enclPackage(m)))
+      f.isPublic || (f.isProtected && enclPackage(f) == enclPackage(m))
 
     private def enclPackage(sym: Symbol): Symbol = 
       if ((sym == NoSymbol) || sym.isPackageClass) sym else enclPackage(sym.owner)
@@ -206,40 +206,30 @@ abstract class ClosureElimination extends SubComponent {
 
   /** Peephole optimization. */
   class PeepholeOpt(peep: (Instruction, Instruction) => Option[List[Instruction]]) {
+    def transformMethod(m: IMethod) = 
+      if (m.hasCode)
+        m.code.blocks filter (_.size >= 2) foreach (b => transformBlock(m, b))
 
-    private var method: IMethod = null
+    private def doPeep(instructions: List[Instruction]): List[Instruction] = {
+      var h = instructions.head
+      var t = instructions.tail
+      var newInstructions: List[Instruction] = Nil
+      var seen: List[Instruction] = Nil
 
-    def transformMethod(m: IMethod): Unit = if (m.code ne null) {
-      method = m
-      for (b <- m.code.blocks) 
-        transformBlock(b)
+      while (t != Nil) {
+        val peepResult = peep(h, t.head) map (xs => seen.reverse ::: xs ::: t.tail)
+        peepResult foreach (newInstructions = _)
+
+        seen ::= h
+        h = t.head
+        t = t.tail
+      }
+      if (newInstructions.isEmpty) instructions
+      else doPeep(newInstructions)
     }
 
-    def transformBlock(b: BasicBlock): Unit = if (b.size >= 2) {
-      var newInstructions: List[Instruction] = Nil;
-
-      newInstructions = b.toList
-      
-      var redo = false
-      do {
-        var h = newInstructions.head;
-        var t = newInstructions.tail;
-        var seen: List[Instruction] = Nil;
-        redo = false;
-
-        while (t != Nil) {
-          peep(h, t.head) match {
-            case Some(newInstrs) =>
-              newInstructions = seen.reverse ::: newInstrs ::: t.tail;
-              redo = true;
-            case None =>
-            	()
-          }
-          seen = h :: seen;
-          h = t.head;
-          t = t.tail
-        }
-      } while (redo);
+    private def transformBlock(m: IMethod, b: BasicBlock): Unit = {      
+      val newInstructions = doPeep(b.toList)
       b.fromList(newInstructions)
     }
   }
