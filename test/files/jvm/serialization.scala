@@ -295,7 +295,7 @@ object Test2_immutable {
 object Test3_mutable {
   import scala.reflect.ClassManifest
   import scala.collection.mutable.{
-    ArrayBuffer, ArrayBuilder, ArrayStack, BitSet, DoubleLinkedList,
+    ArrayBuffer, ArrayBuilder, ArraySeq, ArrayStack, BitSet, DoubleLinkedList,
     HashMap, HashSet, History, LinkedList, ListBuffer, Publisher, Queue,
     Stack, StringBuilder, WrappedArray}
 
@@ -306,7 +306,7 @@ object Test3_mutable {
     ab1 ++= List("one", "two")
     val _ab1: ArrayBuffer[String] = read(write(ab1))
     check(ab1, _ab1)
-
+    
     // ArrayBuilder
     val abu1 = ArrayBuilder.make[Long]
     val _abu1: ArrayBuilder[ClassManifest[Long]] = read(write(abu1))
@@ -315,7 +315,12 @@ object Test3_mutable {
     val abu2 = ArrayBuilder.make[Float]
     val _abu2: ArrayBuilder[ClassManifest[Float]] = read(write(abu2))
     check(abu2, _abu2)
-
+    
+    // ArraySeq
+    val aq1 = ArraySeq(1, 2, 3)
+    val _aq1: ArraySeq[Int] = read(write(aq1))
+    check(aq1, _aq1)
+    
     // ArrayStack
     val as1 = new ArrayStack[Int]
     as1 ++= List(20, 2, 3).iterator
@@ -557,6 +562,35 @@ object Test7 {
     
 }
 
+
+// Verify that transient lazy vals don't get serialized
+@serializable
+class WithTransient {
+  @transient lazy val a1 = 1
+  @transient private lazy val a2 = 2
+  @transient @serializable object B
+    
+  def test = {
+    println(a1)
+    println(a2)
+    if (B == null)
+     println("Transient nested object failed to serialize properly")
+  }
+}
+
+object Test8 {
+    val x = new WithTransient
+    x.test
+  try {
+    val y:WithTransient = read(write(x))
+    y.test
+  }
+  catch {
+  case e: Exception =>
+    println("Error in Test8: " + e)
+  }
+}
+
 //############################################################################
 // Test code
 
@@ -569,6 +603,7 @@ object Test {
     Test5
     Test6
     Test7
+    Test8
   }
 }
 

@@ -69,7 +69,7 @@ package scala
  */
 package object collection {
   import scala.collection.generic.CanBuildFrom // can't refer to CanBuild here
-
+  
   /** Provides a CanBuildFrom instance that builds a specific target collection (`To') irrespective of the original collection (`From').
    */
   def breakOut[From, T, To](implicit b : CanBuildFrom[Nothing, T, To]) =
@@ -79,9 +79,9 @@ package object collection {
   
   private[collection] object DebugUtils {
     /* debug utils */
-    def buildString(closure: (String => Unit) => Unit): String = {
+    def buildString(closure: (Any => Unit) => Unit): String = {
       var output = ""
-      def appendln(s: String) = output += s + "\n"
+      def appendln(s: Any) = output += s + "\n"
       closure(appendln)
       output
     }
