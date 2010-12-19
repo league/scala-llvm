@@ -144,11 +144,14 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
   def warning(msg: String)     = 
     if (opt.fatalWarnings) globalError(msg)
     else reporter.warning(NoPosition, msg)
+  
+  private def elapsedMessage(msg: String, start: Long) =
+    msg + " in " + (currentTime - start) + "ms"
     
   def informComplete(msg: String): Unit    = reporter.withoutTruncating(inform(msg))
   def informProgress(msg: String)          = if (opt.verbose) inform("[" + msg + "]")
   def inform[T](msg: String, value: T): T  = returning(value)(x => inform(msg + x))
-  def informTime(msg: String, start: Long) = informProgress(msg + " in " + (currentTime - start) + "ms")
+  def informTime(msg: String, start: Long) = informProgress(elapsedMessage(msg, start))
 
   def logError(msg: String, t: Throwable): Unit = ()
   def log(msg: => AnyRef): Unit = if (opt.logPhase) inform("[log " + phase + "] " + msg)
@@ -232,6 +235,10 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
     def encoding     = optSetting[String](settings.encoding)
     def sourceReader = optSetting[String](settings.sourceReader)
 
+    // XXX: short term, but I can't bear to add another option.
+    // scalac -Dscala.timings will make this true.
+    def timings       = system.props contains "scala.timings"
+    
     def debug         = settings.debug.value
     def deprecation   = settings.deprecation.value
     def experimental  = settings.Xexperimental.value
@@ -605,8 +612,9 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
   lazy val phaseDescriptors: List[SubComponent] = computePhaseDescriptors
   
   /* The set of phase objects that is the basis for the compiler phase chain */
-  protected val phasesSet     = new mutable.HashSet[SubComponent]
-  protected val phasesDescMap = new mutable.HashMap[SubComponent, String] withDefaultValue ""
+  protected lazy val phasesSet     = new mutable.HashSet[SubComponent]
+  protected lazy val phasesDescMap = new mutable.HashMap[SubComponent, String] withDefaultValue ""
+  private lazy val phaseTimings = new Phase.TimingModel   // tracking phase stats
   protected def addToPhasesSet(sub: SubComponent, descr: String) {
     phasesSet += sub
     phasesDescMap(sub) = descr
@@ -657,6 +665,12 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
     /** To be initialized from firstPhase. */
     private var terminalPhase: Phase = NoPhase
     
+    if (settings.YprofileRes.value) {
+      System.gc();
+      println("Saving snapshot")
+      profiler.captureSnapshot()
+    }
+
     /** Whether compilation should stop at or skip the phase with given name. */
     protected def stopPhase(name: String) = settings.stop contains name
     protected def skipPhase(name: String) = settings.skip contains name
@@ -863,6 +877,10 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
           profiler profile globalPhase.run
         }
         else globalPhase.run
+        
+        // progress update
+        informTime(globalPhase.description, startTime)
+        phaseTimings(globalPhase) = currentTime - startTime
 
         // write icode to *.icode files
         if (opt.writeICode && (runIsAt(icodePhase) || opt.printPhase && runIsPast(icodePhase)))
@@ -881,8 +899,7 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
         if (opt.browsePhase)
           treeBrowser browse (phase.name, units)
         
-        // progress update
-        informTime(globalPhase.description, startTime)
+        // move the pointer
         globalPhase = globalPhase.next
 
         // run tree/icode checkers
@@ -899,6 +916,8 @@ class Global(var settings: Settings, var reporter: Reporter) extends SymbolTable
         profiler.stopProfiling()
         profiler.captureSnapshot()
       }
+      if (opt.timings)
+        inform(phaseTimings.formatted)
   
       // If no phase was specified for -Xshow-class/object, show it now.
       if (settings.Yshow.isDefault)
