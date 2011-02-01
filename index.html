@@ -3,78 +3,34 @@
 
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-
-	<title>greedy/scala @ GitHub</title>
-	
-	<style type="text/css">
-		body {
-  		margin-top: 1.0em;
-  		background-color: #4e129a;
-		  font-family: "Helvetica,Arial,FreeSans";
-  		color: #ffffff;
-    }
-    #container {
-      margin: 0 auto;
-      width: 700px;
-    }
-		h1 { font-size: 3.8em; color: #b1ed65; margin-bottom: 3px; }
-		h1 .small { font-size: 0.4em; }
-		h1 a { text-decoration: none }
-		h2 { font-size: 1.5em; color: #b1ed65; }
-    h3 { text-align: center; color: #b1ed65; }
-    a { color: #b1ed65; }
-    .description { font-size: 1.2em; margin-bottom: 30px; margin-top: 30px; font-style: italic;}
-    .download { float: right; }
-		pre { background: #000; color: #fff; padding: 15px;}
-    hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
-    .footer { text-align:center; padding-top:30px; font-style: italic; }
-	</style>
-	
+	<title>Scala+LLVM</title>
 </head>
 
 <body>
-  <a href="http://github.com/greedy/scala"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" /></a>
-
-  <div id="container">
-
-    <div class="download">
-      <a href="http://github.com/greedy/scala/zipball/master">
-        <img border="0" width="90" src="http://github.com/images/modules/download/zip.png"></a>
-      <a href="http://github.com/greedy/scala/tarball/master">
-        <img border="0" width="90" src="http://github.com/images/modules/download/tar.png"></a>
-    </div>
-
-    <h1><a href="http://github.com/greedy/scala">scala</a>
-      <span class="small">by <a href="http://github.com/greedy">greedy</a></span></h1>
-
-    <div class="description">
-      Work in progress on LLVM target for scala
-    </div>
-
-    <h2>Authors</h2>
-<p>Geoff Reedy (geoff@programmer-monk.net)<br/><br/>      </p>
-<h2>Contact</h2>
-<p>Geoff Reedy (geoff@programmer-monk.net)<br/>      </p>
-
-
-    <h2>Download</h2>
-    <p>
-      You can download this project in either
-      <a href="http://github.com/greedy/scala/zipball/master">zip</a> or
-      <a href="http://github.com/greedy/scala/tarball/master">tar</a> formats.
-    </p>
-    <p>You can also clone the project with <a href="http://git-scm.com">Git</a>
-      by running:
-      <pre>$ git clone git://github.com/greedy/scala</pre>
-    </p>
-
-    <div class="footer">
-      get the source code on GitHub : <a href="http://github.com/greedy/scala">greedy/scala</a>
-    </div>
-
-  </div>
-
-  
+  <h1>Scala on LLVM</h1>
+  <p>
+  This site will be the main location for information about the LLVM backend for Scala that is under development by Geoff Reedy.
+  </p>
+  <h1>Papers</h1>
+  <h2>Compiling Scala to LLVM</h2>
+  <p>
+  This is our submission to the Second Scala Workshop to be held at Stanford on June 2nd 2011.
+  </p>
+  <h3>Abstract</h3>
+  <blockquote>
+    This paper describes ongoing work to implement a new backend for the Scala
+    compiler that targets the \textit{Low Level Virtual Machine (LLVM)}.  LLVM
+    aims to provide a universal intermediate representation for compilers to
+    target and a framework for program transformations and analyses. LLVM also
+    provides facilities for ahead-of-time and just-in-time native code
+    generation. Targeting LLVM allows us to take advantage of this framework to
+    compile Scala source code to optimized native executables. We discuss the
+    design and implementation of our backend. We also outline the additional
+    work needed to produce a robust backend.
+  </blockquote>
+  <h3>Download</h3>
+  <p><a href="scalallvm.pdf">Downlad the PDF</a> Last updated Tue Feb  1 12:53:06 MST 2011.<p>
+  <h3>Comments and Questions</h3>
+  <p>Email <a href="mailto:geoff@programmer-monk.net">geoff@programmer-monk.net</a>.</p>
 </body>
 </html>
