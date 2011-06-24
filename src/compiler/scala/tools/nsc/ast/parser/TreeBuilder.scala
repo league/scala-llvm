@@ -1,5 +1,5 @@
 /* NSC -- new Scala compiler
- * Copyright 2005-2010 LAMP/EPFL
+ * Copyright 2005-2011 LAMP/EPFL
  * @author  Martin Odersky
  */
 
@@ -19,7 +19,7 @@ abstract class TreeBuilder {
 
   def freshName(): Name = freshName("x$")
   def freshTermName(): TermName = freshTermName("x$")
-  
+
   def freshName(prefix: String): Name
   def freshTermName(prefix: String): TermName
   def freshTypeName(prefix: String): TypeName
@@ -67,12 +67,12 @@ abstract class TreeBuilder {
   }
 
   /** Traverse pattern and collect all variable names with their types in buffer
-   *  The variables keep their positions; whereas the pattern is converted to be synthetic
-   *  for all nodes that contain a variable position.
+   *  The variables keep their positions; whereas the pattern is converted to be
+   *  synthetic for all nodes that contain a variable position.
    */ 
   class GetVarTraverser extends Traverser {
     val buf = new ListBuffer[(Name, Tree, Position)]
-    
+
     def namePos(tree: Tree, name: Name): Position =
       if (!tree.pos.isRange || name.containsName(nme.raw.DOLLAR)) tree.pos.focus
       else {
@@ -80,21 +80,21 @@ abstract class TreeBuilder {
         val end = start + name.decode.length
         r2p(start, start, end)
       }
-    
+
     override def traverse(tree: Tree): Unit = {
       def seenName(name: Name)     = buf exists (_._1 == name)
       def add(name: Name, t: Tree) = if (!seenName(name)) buf += ((name, t, namePos(tree, name)))
       val bl = buf.length
-      
+
       tree match {
         case Bind(nme.WILDCARD, _)          =>
           super.traverse(tree)
-        
+
         case Bind(name, Typed(tree1, tpt))  =>
           val newTree = if (treeInfo.mayBeTypePat(tpt)) TypeTree() else tpt.duplicate
           add(name, newTree)
           traverse(tree1)
-          
+
         case Bind(name, tree1)              =>
           // can assume only name range as position, as otherwise might overlap
           // with binds embedded in pattern tree1
@@ -123,12 +123,12 @@ abstract class TreeBuilder {
     val tupString = "Tuple" + trees.length
     Apply(scalaDot(if (isType) newTypeName(tupString) else newTermName(tupString)), trees)
   }
-    
+
   def byNameApplication(tpe: Tree): Tree =
     AppliedTypeTree(rootScalaDot(tpnme.BYNAME_PARAM_CLASS_NAME), List(tpe))
   def repeatedApplication(tpe: Tree): Tree =
     AppliedTypeTree(rootScalaDot(tpnme.REPEATED_PARAM_CLASS_NAME), List(tpe))
-  
+
   def makeImportSelector(name: Name, nameOffset: Int): ImportSelector =
     ImportSelector(name, nameOffset, name, nameOffset)
 
@@ -149,7 +149,8 @@ abstract class TreeBuilder {
     case _ => t
   }
 
-  def makeAnnotated(t: Tree, annot: Tree): Tree = atPos(annot.pos union t.pos)(Annotated(annot, t))
+  def makeAnnotated(t: Tree, annot: Tree): Tree =
+    atPos(annot.pos union t.pos)(Annotated(annot, t))
 
   def makeSelfDef(name: TermName, tpt: Tree): ValDef =
     ValDef(Modifiers(PRIVATE), name, tpt, EmptyTree)
@@ -252,7 +253,7 @@ abstract class TreeBuilder {
     LabelDef(lname, Nil, rhs)
   }
 
-  /** Create block of statements `stats'  */
+  /** Create block of statements `stats`  */
   def makeBlock(stats: List[Tree]): Tree =
     if (stats.isEmpty) Literal(())
     else if (!stats.last.isTerm) Block(stats, Literal(()))
@@ -261,7 +262,7 @@ abstract class TreeBuilder {
 
   /** Create tree for for-comprehension generator <val pat0 <- rhs0> */
   def makeGenerator(pos: Position, pat: Tree, valeq: Boolean, rhs: Tree): Enumerator = {
-    val pat1 = patvarTransformer.transform(pat);
+    val pat1 = patvarTransformer.transform(pat)
     val rhs1 =
       if (valeq) rhs
       else matchVarPattern(pat1) match {
@@ -283,7 +284,7 @@ abstract class TreeBuilder {
       }
     if (valeq) ValEq(pos, pat1, rhs1) else ValFrom(pos, pat1, rhs1)
   }
-  
+
   def makeParam(pname: TermName, tpe: Tree) =
     ValDef(Modifiers(PARAM), pname, tpe, EmptyTree)
 
@@ -370,7 +371,7 @@ abstract class TreeBuilder {
      */
     def makeCombination(pos: Position, meth: TermName, qual: Tree, pat: Tree, body: Tree): Tree = 
       Apply(Select(qual, meth) setPos qual.pos, List(makeClosure(pos, pat, body))) setPos pos
-    
+
     /** Optionally, if pattern is a `Bind`, the bound name, otherwise None.
      */
     def patternVar(pat: Tree): Option[Name] = pat match {
@@ -492,24 +493,24 @@ abstract class TreeBuilder {
    */
   def makeCatchFromExpr(catchExpr: Tree): CaseDef = {
     val binder   = freshTermName("x")
-    val pat      = atPos(catchExpr.pos)(Bind(binder, Typed(Ident(nme.WILDCARD), Ident(tpnme.Throwable))))
+    val pat      = Bind(binder, Typed(Ident(nme.WILDCARD), Ident(tpnme.Throwable)))
     val catchDef = ValDef(NoMods, freshTermName("catchExpr"), TypeTree(), catchExpr)
     val catchFn  = Ident(catchDef.name)
-    val body     = Block(
+    val body     = atPos(catchExpr.pos.makeTransparent)(Block(
       List(catchDef),
       If(
         Apply(Select(catchFn, nme.isDefinedAt), List(Ident(binder))),
         Apply(Select(catchFn, nme.apply), List(Ident(binder))),
         Throw(Ident(binder))
       )
-    )
+    ))
     makeCaseDef(pat, EmptyTree, body)
   }
 
   /** Create tree for pattern definition <val pat0 = rhs> */
   def makePatDef(pat: Tree, rhs: Tree): List[Tree] =
     makePatDef(Modifiers(0), pat, rhs)
-  
+
   /** For debugging only.  Desugar a match statement like so:
    *  val x = scrutinee
    *  x match {
@@ -526,18 +527,18 @@ abstract class TreeBuilder {
    */
   def makeSequencedMatch(selector: Tree, cases: List[CaseDef]): Tree = {
     require(cases.nonEmpty)
-    
+
     val selectorName = freshTermName()
     val valdef = atPos(selector.pos)(ValDef(Modifiers(PRIVATE | LOCAL | SYNTHETIC), selectorName, TypeTree(), selector))
     val nselector = Ident(selectorName)
-    
+
     def loop(cds: List[CaseDef]): Match = {
       def mkNext = CaseDef(Ident(nme.WILDCARD), EmptyTree, loop(cds.tail))
-      
+
       if (cds.size == 1) Match(nselector, cds)
       else Match(selector, List(cds.head, mkNext))
     }
-    
+
     Block(List(valdef), loop(cases))
   }
 
@@ -561,7 +562,7 @@ abstract class TreeBuilder {
       val vars = getVariables(pat1)
       val matchExpr = atPos((pat1.pos union rhs.pos).makeTransparent) {
         Match(
-          makeUnchecked(rhs), 
+          makeUnchecked(rhs),
           List(
             atPos(pat1.pos) {
               CaseDef(pat1, EmptyTree, makeTupleTerm(vars map (_._1) map Ident, true))
@@ -573,16 +574,16 @@ abstract class TreeBuilder {
           List(atPos(pat.pos union pos union rhs.pos) {
             ValDef(mods, vname.toTermName, tpt, matchExpr)
           })
-        case _ => 
+        case _ =>
           val tmp = freshTermName()
-          val firstDef = 
+          val firstDef =
             atPos(matchExpr.pos) {
-              ValDef(Modifiers(PRIVATE | LOCAL | SYNTHETIC | (mods.flags & LAZY)), 
+              ValDef(Modifiers(PRIVATE | LOCAL | SYNTHETIC | (mods.flags & LAZY)),
                      tmp, TypeTree(), matchExpr)
             }
           var cnt = 0
           val restDefs = for ((vname, tpt, pos) <- vars) yield atPos(pos) {
-            cnt = cnt + 1
+            cnt += 1
             ValDef(mods, vname.toTermName, tpt, Select(Ident(tmp), newTermName("_" + cnt)))
           }
           firstDef :: restDefs
@@ -593,7 +594,7 @@ abstract class TreeBuilder {
   def makeFunctionTypeTree(argtpes: List[Tree], restpe: Tree): Tree =
     AppliedTypeTree(rootScalaDot(newTypeName("Function" + argtpes.length)), argtpes ::: List(restpe))
 
-  /** Append implicit parameter section if `contextBounds' nonempty */
+  /** Append implicit parameter section if `contextBounds` nonempty */
   def addEvidenceParams(owner: Name, vparamss: List[List[ValDef]], contextBounds: List[Tree]): List[List[ValDef]] =
     if (contextBounds.isEmpty) vparamss
     else {

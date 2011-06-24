@@ -1,6 +1,6 @@
 /*                     __                                               *\
 **     ________ ___   / /  ___     Scala API                            **
-**    / __/ __// _ | / /  / _ |    (c) 2003-2010, LAMP/EPFL             **
+**    / __/ __// _ | / /  / _ |    (c) 2003-2011, LAMP/EPFL             **
 **  __\ \/ /__/ __ |/ /__/ __ |    http://scala-lang.org/               **
 ** /____/\___/_/ |_/____/_/ | |                                         **
 **                          |/                                          **
@@ -11,7 +11,8 @@ package scala.collection
 
 import generic._
 import mutable.{ Builder, MapBuilder }
-import annotation.migration
+import annotation.{migration, bridge}
+import parallel.ParMap
 
 /** A template trait for maps, which associate keys with values.
  *
@@ -56,14 +57,17 @@ import annotation.migration
 trait MapLike[A, +B, +This <: MapLike[A, B, This] with Map[A, B]]
   extends PartialFunction[A, B] 
      with IterableLike[(A, B), This] 
-     with Subtractable[A, This] { 
+     with GenMapLike[A, B, This]
+     with Subtractable[A, This] 
+     with Parallelizable[(A, B), ParMap[A, B]] 
+{
 self =>
 
   /** The empty map of the same type as this map
    *   @return   an empty map of type `This`.
    */
   def empty: This
-       
+  
   /** A common implementation of `newBuilder` for all maps in terms of `empty`.
    *  Overridden for mutable maps in `mutable.MapLike`.
    */
@@ -82,7 +86,7 @@ self =>
    *  @return the new iterator
    */
   def iterator: Iterator[(A, B)]
-     
+  
   /** Adds a key/value pair to this map, returning a new map. 
    *  @param    kv the key/value pair
    *  @tparam   B1 the type of the value in the key/value pair. 
@@ -137,10 +141,7 @@ self =>
    *  @param key the key
    *  @return    `true` if there is a binding for `key` in this map, `false` otherwise.
    */
-  def contains(key: A): Boolean = get(key) match {
-    case None => false
-    case Some(_) => true
-  }
+  def contains(key: A): Boolean = get(key).isDefined
 
   /** Tests whether this map contains a binding for a key. This method,
    *  which implements an abstract method of trait `PartialFunction`,
@@ -174,7 +175,7 @@ self =>
   def keysIterator: Iterator[A] = new Iterator[A] {
     val iter = self.iterator
     def hasNext = iter.hasNext
-    def next = iter.next._1
+    def next() = iter.next._1
   }
 
   /** Creates an iterator for all keys.
@@ -205,7 +206,7 @@ self =>
   def valuesIterator: Iterator[B] = new Iterator[B] {
     val iter = self.iterator
     def hasNext = iter.hasNext
-    def next = iter.next._2
+    def next() = iter.next._2
   }
 
   /** Defines the default value computation for the map,
@@ -244,7 +245,8 @@ self =>
     def get(key: A) = self.get(key).map(f)
   }
 
-  @deprecated("use `mapValues' instead") def mapElements[C](f: B => C) = mapValues(f)
+  @deprecated("use `mapValues` instead", "2.8.0")
+  def mapElements[C](f: B => C) = mapValues(f)
 
   // The following 5 operations (updated, two times +, two times ++) should really be
   // generic, returning This[B]. We need better covariance support to express that though.
@@ -282,8 +284,11 @@ self =>
    *  @return   a new map with the given bindings added to this map
    *  @usecase  def ++ (xs: Traversable[(A, B)]): Map[A, B]
    */
-  def ++[B1 >: B](xs: TraversableOnce[(A, B1)]): Map[A, B1] = 
-    ((repr: Map[A, B1]) /: xs) (_ + _)
+  def ++[B1 >: B](xs: GenTraversableOnce[(A, B1)]): Map[A, B1] = 
+    ((repr: Map[A, B1]) /: xs.seq) (_ + _)
+
+  @bridge
+  def ++[B1 >: B](xs: TraversableOnce[(A, B1)]): Map[A, B1] = ++(xs: GenTraversableOnce[(A, B1)])
 
   /** Returns a new map with all key/value pairs for which the predicate
    *  `p` returns `true`.
@@ -310,6 +315,8 @@ self =>
     copyToBuffer(result)
     result
   }
+  
+  protected[this] override def parCombiner = ParMap.newCombiner[A, B]
 
   /** Appends all bindings of this map to a string builder using start, end, and separator strings.
    *  The written text begins with the string `start` and ends with the string
@@ -334,34 +341,4 @@ self =>
   override /*PartialFunction*/
   def toString = super[IterableLike].toString
   
-  override def hashCode() = this map (_.##) sum
-  
-  /** Compares two maps structurally; i.e. checks if all mappings
-   *  contained in this map are also contained in the other map,
-   *  and vice versa.
-   *
-   *  @param that the other map
-   *  @return     `true` if both maps contain exactly the
-   *              same mappings, `false` otherwise.
-   */
-  override def equals(that: Any): Boolean = that match {
-    case that: Map[b, _] => 
-      (this eq that) ||
-      (that canEqual this) &&
-      (this.size == that.size) && {
-      try {
-        this forall { 
-          case (k, v) => that.get(k.asInstanceOf[b]) match {
-            case Some(`v`) =>
-              true
-            case _ => false
-          }
-        }
-      } catch { 
-        case ex: ClassCastException => 
-          println("class cast "); false 
-      }}
-    case _ =>
-      false
-  }
 }
