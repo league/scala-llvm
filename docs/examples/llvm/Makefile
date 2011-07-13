@@ -12,7 +12,7 @@ run-sample-jvm:
 	../../../build/quick/bin/scala -cp classes example
 
 code.bc: irfiles.stamp $(patsubst %.ll,%.bc,$(wildcard irfiles/*.ll))
-	llvm-ld -o $@ -r -disable-internalize irfiles/*.bc ../../../src/llvmrt/llvmrt.a
+	llvm-ld -o $@ -r -disable-inlining -disable-internalize irfiles/*.bc ../../../src/llvmrt/llvmrt.a
 
 irfiles.stamp irfiles/*.ll: example.scala runtime.scala
 	mkdir -p irfiles
