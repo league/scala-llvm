@@ -8,6 +8,8 @@ LDLIBS = `icu-config --ldflags-libsonly --ldflags-icuio` `llvm-config --libs $(C
 
 RTOBJECTS = runtime.bc object.bc boxes.bc arrays.bc strings.bc fp.bc io.bc
 
+all: llvmrt.a runscala linkscala
+
 %.bc: %.c
 	clang -std=c99 -fexceptions `icu-config --cppflags` -O4 -emit-llvm -c -o $@ $^
 
