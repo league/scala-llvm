@@ -661,11 +661,43 @@ abstract class GenLLVM extends SubComponent {
       }
 
       def virtualMethods(s: Symbol): List[Symbol] = {
-        if (s == NoSymbol) Nil
-        else {
-          val myvirts = s.info.decls.toList.filter(d => d.isMethod && !d.isConstructor && !(d.isOverride && s.superClass.info.members.exists(mem => mem.info <:< d.info && mem.name == d.name)) && (d.isDeferred || !d.isEffectivelyFinal))
-          (virtualMethods(s.superClass) ++ myvirts.sortBy(methodSig _)).toList
-        }
+
+        def includeP(d: Symbol) =
+          (d.isMethod && !d.isConstructor &&
+           !(d.isOverride && s.superClass.info.members.exists(mem =>
+             mem.info <:< d.info && mem.name == d.name)) &&
+           (d.isDeferred || !d.isEffectivelyFinal))
+
+        def loop(s: Symbol): List[Symbol] =
+          if(s == NoSymbol) Nil
+          else {
+            /* Signature consists of name and argument types, but not
+               return type. We have to coalesce methods that differ
+               only by return type, because that's what the pickler
+               does. */
+            val bySig = new mutable.HashMap[(Name, List[Type]), Symbol]
+            def record(d: Symbol) {
+              val k = (d.name, d.info.paramTypes)
+                bySig.get(k) match {
+                  case None => bySig += k -> d
+                  case Some(e) => {
+                    /* What to do here? d,e are method symbols that
+                       differ only in return type. For now we keep d,
+                       the first one encountered. That seems to work,
+                       but maybe we'll need to be smarter. You'll know
+                       because assert(mnum >= 0) will fail when
+                       generating a CALL_METHOD using a return type
+                       that we discarded. */
+                    //printf("    conflict %s: %s\n", e.detailedString, e.info)
+                    //printf("          vs %s: %s\n", d.detailedString, d.info)
+                  }
+                }
+            }
+            val sup = loop(s.superClass)
+            s.info.decls.toList.filter(includeP).foreach(record)
+            sup ++ bySig.values.toList.sortBy(methodSig _)
+          }
+        loop(s)
       }
 
       def implementationOf(m: Symbol) = {
