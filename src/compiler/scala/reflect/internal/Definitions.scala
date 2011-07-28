@@ -849,8 +849,14 @@ trait Definitions /*extends reflect.generic.StandardDefinitions*/ {
         ObjectClass, nme.synchronized_,
         tparam => msym => MethodType(msym.newSyntheticValueParams(List(tparam.typeConstructor)), tparam.typeConstructor)) setFlag FINAL
 
-      String_+ = newMethod(
-        StringClass, "+", anyparam, stringtype) setFlag FINAL
+      String_+ = {
+        /* LLVM backend dumps and reads pickled signature from
+           java/lang/String.sym, so we might already have the "+"
+           method from last time. --league */
+        val ds = StringClass.info.decls.lookupAll("$plus")
+        if(ds.hasNext) ds.next
+        else newMethod(StringClass, "+", anyparam, stringtype) setFlag FINAL
+      }
 
       val forced = List( // force initialization of every symbol that is entered as a side effect
         AnnotationDefaultAttr, // #2264
