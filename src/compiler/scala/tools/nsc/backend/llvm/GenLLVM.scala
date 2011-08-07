@@ -2008,10 +2008,7 @@ abstract class GenLLVM extends SubComponent {
       val otherModules = externModules.filterKeys(_.moduleClass!=c.symbol)
       val module = new Module(Seq.concat(
         Seq(header_comment),
-        externTypes.values.map {
-          case t:LMOpaque with TypeAlias => new TypeAlias(rtObject.aliased(t.name))
-          case at => new TypeAlias(at)
-        },
+        externTypes.values.map(new TypeAlias(_)),
         rtHeader,
         externDecls,
         otherModules.values.map(_.declare),
